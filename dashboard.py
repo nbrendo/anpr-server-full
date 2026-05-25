@@ -476,6 +476,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def row_to_payload(self, row: sqlite3.Row) -> Dict[str, Any]:
         image_path = row["image_path"] or ""
         snapshot_url = self.snapshot_url(image_path)
+        
+        # Handle potential missing fields
+        try:
+            owner = demo_owner_for_plate(row["plate"])
+        except Exception as e:
+            print(f"Error getting owner for plate {row['plate']}: {e}")
+            owner = {
+                "registered": "UNKNOWN",
+                "owner_name": "Error loading",
+                "owner_type": "Unknown",
+                "owner_city": "Unknown",
+                "registration_number": "Unknown",
+                "data_source": "Error",
+            }
+        
         payload = {
             "id": row["id"],
             "plate": row["plate"],
@@ -485,10 +500,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "image_path": image_path,
             "snapshot_url": snapshot_url,
             "status": row["status"],
-            "owner": demo_owner_for_plate(row["plate"]),
+            "owner": owner,
         }
-        if "track_id" in row.keys():
-            payload["track_id"] = row["track_id"]
+        
+        # Add track_id if it exists in the row
+        try:
+            if "track_id" in row.keys():
+                payload["track_id"] = row["track_id"]
+        except:
+            pass
+            
         return payload
 
     def snapshot_url(self, image_path: str) -> str:
@@ -504,7 +525,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         name = Path(unquote(raw_name)).name
         path = (self.server.snapshot_dir / name).resolve()
 
-        if self.server.snapshot_dir not in path.parents and path != self.server.snapshot_dir:
+        # Security check
+        try:
+            if self.server.snapshot_dir not in path.parents and path != self.server.snapshot_dir:
+                self.send_error(403, "Forbidden")
+                return
+        except:
             self.send_error(403, "Forbidden")
             return
 
@@ -536,10 +562,10 @@ def safe_int(value: str, fallback: int) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Dashboard for the Zimbabwe ANPR detector")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--db", default=DEFAULT_DB_PATH)
-    parser.add_argument("--snapshots", default=DEFAULT_SNAPSHOT_DIR)
+    parser.add_argument("--host", default=os.getenv("DASHBOARD_HOST", "0.0.0.0"))  # Changed for Docker
+    parser.add_argument("--port", type=int, default=int(os.getenv("DASHBOARD_PORT", "8080")))
+    parser.add_argument("--db", default=os.getenv("DB_PATH", DEFAULT_DB_PATH))
+    parser.add_argument("--snapshots", default=os.getenv("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR))
     return parser.parse_args()
 
 
@@ -550,10 +576,21 @@ def main() -> None:
     snapshot_dir.mkdir(parents=True, exist_ok=True)
 
     server = DashboardServer((args.host, args.port), db_path, snapshot_dir)
-    print(f"Dashboard running at http://{args.host}:{args.port}")
-    print(f"Reading database: {db_path.resolve()}")
-    print(f"Serving snapshots: {snapshot_dir.resolve()}")
-    server.serve_forever()
+    
+    print(f"\n{'='*60}")
+    print(f"📊 ANPR Dashboard Started")
+    print(f"{'='*60}")
+    print(f"📍 Dashboard URL: http://{args.host}:{args.port}")
+    print(f"💾 Database: {db_path.resolve()}")
+    print(f"📁 Snapshots: {snapshot_dir.resolve()}")
+    print(f"{'='*60}")
+    print("Press Ctrl+C to stop the dashboard\n")
+    
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n👋 Shutting down dashboard...")
+        server.shutdown()
 
 
 if __name__ == "__main__":

@@ -1,113 +1,77 @@
-# RuralVoice Assistant
 
-## Zimbabwe ANPR Dashboard
+# ANPR Server - Automatic Number Plate Recognition
 
-The ANPR detector is in `main.py`. The browser dashboard is in `dashboard.py` and reads the same `plates.db` database that the detector writes to.
+A complete ANPR (Automatic Number Plate Recognition) system with YOLO models for vehicle and license plate detection.
 
-Run the detector:
+## Features
+- Real-time license plate detection
+- Vehicle detection and tracking
+- Web dashboard for monitoring
+- Mobile server support
+- Docker containerization
+- SQLite database for storing plate records
 
-```powershell
-py main.py --video 0524.mp4
-```
+## Models Required
+- `plate_best.pt` - YOLO model for license plate detection
+- `vehicle_best.pt` - YOLO model for vehicle detection
 
-Run the dashboard in another terminal:
+### Download Models
+Place the model files (`plate_best.pt` and `vehicle_best.pt`) in the project root directory.
 
-```powershell
-py dashboard.py
-```
+## Database Setup
+The system automatically creates `plates.db` on first run. No manual setup required.
 
-Open:
+## Installation
 
-```text
-http://127.0.0.1:8080
-```
+### Local Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/nbrendo/anpr-server-full.git
+cd anpr-server-full
 
-The dashboard auto-refreshes every 3 seconds and shows detected plate, status, time, vehicle type, confidence, and snapshot.
-It also shows a demo registration section with generated owner details for each detected plate. These owner records are dummy data for presentation only.
+---
+title: ANPR Server
+emoji: 🚗
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 8000
+---
 
-## Phone Capture Mode
+# ANPR - Automatic Number Plate Recognition
 
-Use this when your phone should take the picture while the laptop runs the trained YOLO and OCR models.
+Vehicle and license plate detection system using YOLO.
 
-1. Connect the phone and laptop to the same Wi-Fi.
-2. Start the phone capture server:
 
-```powershell
-py mobile_server.py
-```
+---
+title: ANPR Server
+emoji: 🚗
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 8090
+---
 
-3. The terminal will print an address like:
+# ANPR Server - Automatic Number Plate Recognition
 
-```text
-http://192.168.1.25:8090
-```
+A production-ready ANPR system for Zimbabwean license plates using YOLOv8 and EasyOCR.
 
-4. Open that address on your phone browser.
-5. Tap the file/camera input, take a photo, then tap `Detect Plate`.
+## Features
 
-Do not open `127.0.0.1` from the phone. On a phone, `127.0.0.1` means the phone itself, not the laptop.
+- Real-time vehicle and license plate detection
+- Mobile-friendly web interface for photo uploads
+- Dashboard for viewing detection history
+- SQLite database with CSV export
+- Automatic snapshot capture
+- Blacklist support for suspicious vehicles
+- Demo owner registry lookup
 
-If Windows Firewall asks for permission, allow Python on private networks.
+## Quick Start
 
-## Hosted Server Mode
+### Local Installation
 
-To stop depending on your laptop, deploy the phone capture server to a cloud GPU server. Follow:
-
-[DEPLOY_SERVER.md](DEPLOY_SERVER.md)
-
-After deployment, your phone will open the public server URL instead of the laptop Wi-Fi address.
-
-Offline-first phone assistant concept for rural Zimbabwean users and blind users.
-
-This repository currently contains:
-
-- A system blueprint in [docs/SYSTEM_BLUEPRINT.md](docs/SYSTEM_BLUEPRINT.md).
-- A starter command grammar in [docs/COMMAND_GRAMMAR.md](docs/COMMAND_GRAMMAR.md).
-- An Android MVP skeleton in [android-assistant](android-assistant).
-
-## What Works In The Skeleton
-
-- Basic Android project structure.
-- Voice command data model.
-- English/Shona/Ndebele starter command parser.
-- Spoken feedback through Android TextToSpeech.
-- Intent-based opening of contacts, dialer/calls, and installed apps.
-- AccessibilityService scaffold for future `home`, `back`, and screen-reading commands.
-
-## What Must Be Added Next
-
-- Real offline speech recognition engine.
-- Contact lookup by name before calling.
-- Confirmation flow for calls and dangerous commands.
-- Media search against local audio/video files.
-- AccessibilityService binding from the command executor.
-- Low-end phone testing and phrase tuning with Zimbabwean voices.
-
-## Android Build
-
-Open `android-assistant` in Android Studio.
-
-Recommended first test device:
-
-- Android 8 or newer.
-- Has Google/Android TextToSpeech installed, or another TTS engine.
-- Microphone permission available.
-- Accessibility permission can be enabled manually.
-
-After installing:
-
-1. Open Android Settings.
-2. Go to Accessibility.
-3. Enable RuralVoice.
-4. Open the RuralVoice app.
-5. Test the current demo button.
-
-## Feature Phone Build
-
-Do not try to install this Android APK on KaiOS or Java button phones. They need separate apps.
-
-For KaiOS, build a web app with a manifest and test capabilities on target devices.
-
-For Java/J2ME, build only a limited keypad app if the specific phone supports MIDlets.
-
-For closed button phones, use an IVR/USSD/SMS assistant instead of an offline installed assistant.
+```bash
+git clone https://github.com/nbrendo/anpr-server-full.git
+cd anpr-server-full
+pip install -r requirements.txt
+python mobile_server.py

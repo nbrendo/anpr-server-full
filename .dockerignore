@@ -1,17 +1,49 @@
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.git/
-.venv/
+
+# Virtual environments
 venv/
 env/
-snapshots/
+.venv/
+
+# Database and data (will be recreated)
 *.db
+*.db-journal
 *.csv
+detected_plates.csv
+plates.db
+
+# Media files (large)
 *.mp4
 *.avi
 *.mov
 *.mkv
-android-assistant/
+anpr_server_video.mp4
+
+# Snapshots (will be created at runtime)
+snapshots/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Documentation (optional)
 docs/
+DEPLOY_SERVER.md
+
+# Environment
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keep model files (uncomment if you want to exclude them)
+# plate_best.pt
+# vehicle_best.pt

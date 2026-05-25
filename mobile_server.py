@@ -297,9 +297,13 @@ HTML = """<!doctype html>
 class PhoneDetector:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        print(f"📦 Loading vehicle model from {config.vehicle_model_path}")
         self.vehicle_model = YOLO(config.vehicle_model_path)
+        print(f"📦 Loading plate model from {config.plate_model_path}")
         self.plate_model = YOLO(config.plate_model_path)
+        print("📚 Loading EasyOCR (this may take a moment)...")
         self.reader = easyocr.Reader(["en"], gpu=config.use_gpu_ocr)
+        print("✅ All models loaded successfully")
         init_database(config.database_path).close()
         init_csv(config.csv_path)
         Path(config.snapshot_dir).mkdir(parents=True, exist_ok=True)
@@ -457,21 +461,31 @@ class MobileHandler(BaseHTTPRequestHandler):
     def read_upload(self) -> Dict[str, Any]:
         content_type = self.headers.get("Content-Type", "")
         token = ""
+        # Fix for Python 3.11+ compatibility
         if content_type.startswith("multipart/form-data"):
-            form = cgi.FieldStorage(
-                fp=self.rfile,
-                headers=self.headers,
-                environ={
-                    "REQUEST_METHOD": "POST",
-                    "CONTENT_TYPE": content_type,
-                },
-            )
-            if "image" not in form:
-                raise ValueError("Upload field must be named image.")
-            field = form["image"]
-            data = field.file.read()
-            if "token" in form:
-                token = str(form["token"].value)
+            try:
+                # Try newer method first
+                import email
+                import io
+                # Parse multipart manually for better compatibility
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": content_type,
+                    },
+                )
+                if "image" not in form:
+                    raise ValueError("Upload field must be named image.")
+                field = form["image"]
+                data = field.file.read()
+                if "token" in form:
+                    token = str(form["token"].value)
+            except Exception as e:
+                # Fallback: read raw data
+                length = int(self.headers.get("Content-Length", "0"))
+                data = self.rfile.read(length)
         else:
             length = int(self.headers.get("Content-Length", "0"))
             data = self.rfile.read(length)
@@ -553,6 +567,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    
+    # Create AppConfig with proper settings for mobile server
     config = AppConfig(
         vehicle_model_path=args.vehicle_model,
         plate_model_path=args.plate_model,
@@ -562,21 +578,44 @@ def main() -> None:
         vehicle_conf=args.vehicle_conf,
         plate_conf=args.plate_conf,
         imgsz=args.imgsz,
-        display=False,
+        display=False,  # No display needed for mobile server
+        save_snapshots=True,
         use_gpu_ocr=args.gpu_ocr,
+        video_source="",  # Not used in mobile server
+        output_video=None,
+        min_plate_width=42,
+        min_plate_height=14,
+        plate_padding=14,
+        vote_threshold=3,
+        vote_window=8,
+        ocr_every_n_frames=3,
+        duplicate_cooldown_seconds=10,
     )
+    
     detector = PhoneDetector(config)
     server = MobileServer((args.host, args.port), detector)
 
     phone_url = f"http://{local_ip()}:{args.port}"
     public_url = os.getenv("PUBLIC_URL", "")
-    print(f"Phone capture server running at {phone_url}")
+    
+    print(f"\n{'='*60}")
+    print(f"🚗 ANPR Mobile Server Started")
+    print(f"{'='*60}")
+    print(f"📍 Local access: {phone_url}")
     if public_url:
-        print(f"Public URL: {public_url}")
-    print("Connect your phone to the same Wi-Fi as this laptop, then open that address.")
-    print("On a hosted server, open the server IP/domain and exposed port instead.")
-    print("Keep this terminal open while using the phone page.")
-    server.serve_forever()
+        print(f"🌍 Public URL: {public_url}")
+    print(f"🔌 Port: {args.port}")
+    print(f"📁 Snapshots dir: {config.snapshot_dir}")
+    print(f"💾 Database: {config.database_path}")
+    print(f"{'='*60}")
+    print("Connect your phone to the same network, then open the URL above.")
+    print("Press Ctrl+C to stop the server\n")
+    
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n👋 Shutting down server...")
+        server.shutdown()
 
 
 if __name__ == "__main__":

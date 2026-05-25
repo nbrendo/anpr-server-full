@@ -70,12 +70,12 @@ BLACKLIST = {
 
 def parse_args() -> AppConfig:
     parser = argparse.ArgumentParser(description="Zimbabwe ANPR system using YOLO + EasyOCR")
-    parser.add_argument("--video", default=AppConfig.video_source, help="Video file, camera index, or stream URL")
-    parser.add_argument("--vehicle-model", default=AppConfig.vehicle_model_path)
-    parser.add_argument("--plate-model", default=AppConfig.plate_model_path)
-    parser.add_argument("--db", default=AppConfig.database_path)
-    parser.add_argument("--csv", default=AppConfig.csv_path)
-    parser.add_argument("--snapshots", default=AppConfig.snapshot_dir)
+    parser.add_argument("--video", default=os.environ.get("VIDEO_SOURCE", AppConfig.video_source), help="Video file, camera index, or stream URL")
+    parser.add_argument("--vehicle-model", default=os.environ.get("VEHICLE_MODEL", AppConfig.vehicle_model_path))
+    parser.add_argument("--plate-model", default=os.environ.get("PLATE_MODEL", AppConfig.plate_model_path))
+    parser.add_argument("--db", default=os.environ.get("DATABASE_PATH", AppConfig.database_path))
+    parser.add_argument("--csv", default=os.environ.get("CSV_PATH", AppConfig.csv_path))
+    parser.add_argument("--snapshots", default=os.environ.get("SNAPSHOT_DIR", AppConfig.snapshot_dir))
     parser.add_argument("--output-video", default=None)
     parser.add_argument("--vehicle-conf", type=float, default=AppConfig.vehicle_conf)
     parser.add_argument("--plate-conf", type=float, default=AppConfig.plate_conf)
@@ -350,12 +350,31 @@ def make_video_writer(config: AppConfig, cap: cv2.VideoCapture) -> Optional[cv2.
 
 def main() -> None:
     config = parse_args()
+    
+    # Create directories
     Path(config.snapshot_dir).mkdir(parents=True, exist_ok=True)
+    Path(config.database_path).parent.mkdir(parents=True, exist_ok=True)
     init_csv(config.csv_path)
 
-    vehicle_model = YOLO(config.vehicle_model_path)
-    plate_model = YOLO(config.plate_model_path)
+    # Check if model files exist
+    if not os.path.exists(config.vehicle_model_path):
+        print(f"⚠️ Warning: Vehicle model not found at {config.vehicle_model_path}")
+    if not os.path.exists(config.plate_model_path):
+        print(f"⚠️ Warning: Plate model not found at {config.plate_model_path}")
+    
+    # Load models with error handling
+    try:
+        vehicle_model = YOLO(config.vehicle_model_path)
+        plate_model = YOLO(config.plate_model_path)
+        print("✅ Models loaded successfully")
+    except Exception as e:
+        print(f"❌ Error loading models: {e}")
+        raise
+    
+    # Initialize EasyOCR
+    print("📚 Loading EasyOCR (this may take a moment)...")
     reader = easyocr.Reader(["en"], gpu=config.use_gpu_ocr)
+    print("✅ EasyOCR loaded")
 
     conn = init_database(config.database_path)
     cap = open_video(config.video_source)
@@ -367,6 +386,8 @@ def main() -> None:
     track_states: Dict[int, TrackState] = defaultdict(lambda: TrackState(deque(maxlen=config.vote_window)))
     frame_index = 0
     fps_started = time.time()
+    
+    print(f"🚀 Starting ANPR system on {config.video_source}")
 
     try:
         while True:
@@ -447,6 +468,10 @@ def main() -> None:
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
+    except KeyboardInterrupt:
+        print("\n⚠️ Stopped by user")
+    except Exception as e:
+        print(f"❌ Error during execution: {e}")
     finally:
         cap.release()
         if writer is not None:
@@ -454,6 +479,7 @@ def main() -> None:
         conn.close()
         if config.display:
             cv2.destroyAllWindows()
+        print("👋 ANPR system stopped")
 
 
 if __name__ == "__main__":
